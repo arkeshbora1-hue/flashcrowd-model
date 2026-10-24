@@ -1,0 +1,39 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "flashcrowd-model"
+version = "0.1.0"
+description = "FLASHCROWD: predict Wikipedia flash crowds from edit signals and pre-scale capacity"
+requires-python = ">=3.11"
+dependencies = [
+  "numpy>=1.26",
+  "pandas>=2.1",
+  "duckdb>=1.0",
+  "scikit-learn>=1.5",
+  "lightgbm>=4.3",
+  "matplotlib>=3.8",
+  "pyarrow>=15",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+gemini = ["google-genai>=1.0"]
+snowflake = ["snowflake-connector-python>=3.10"]
+
+[project.scripts]
+flashcrowd-synth = "flashcrowd_model.synth:main"
+flashcrowd-train = "flashcrowd_model.train:main"
+flashcrowd-backtest = "flashcrowd_model.backtest:main"
+flashcrowd-forecast = "flashcrowd_model.forecast_job:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+flashcrowd_model = ["sql/*.sql"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
