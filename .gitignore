@@ -1,6 +1,17 @@
 __pycache__/
 *.egg-info/
 .pytest_cache/
+.env
+!.env.example
 data/*.duckdb
-models/
-out/forecasts/
+# models, caches and run folders stay local; charts are committed for the slides
+artifacts/*
+!artifacts/charts/
+!artifacts/levels.json
+!artifacts/sample_review.json
+!artifacts/handoff/
+!.vscode/
+
+# private keys and other credentials
+secrets/
+*.p8

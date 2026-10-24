@@ -1,34 +1,46 @@
+# FLASHCROWD PC3 commands. Store: FLASHCROWD_STORE=snowflake (real data) or duckdb:<file> (default: local synthetic).
 PY ?= python3
 export PYTHONPATH := src
 
-.PHONY: install test data leakcheck train backtest forecast causes all clean
+.PHONY: install test synth train forecast batch backtest gemini sql all clean
 
-install:            ## editable install with test deps
-	$(PY) -m pip install -e ".[dev]"
+# Install the engine + full model pipeline + test tools.
+install:
+	$(PY) -m pip install -e ".[model,gemini,dev]"
 
-test:               ## engine + model tests (H0-H3 gate for engine-v0.1)
+# Engine contract tests + pipeline tests (leak checks, SQL parity, end-to-end on small synthetic data).
+test:
 	$(PY) -m pytest -q
 
-data:               ## synthetic data -> data/flashcrowd.duckdb (swap for PC1's extract later)
+# Offline stand-in for PC1's Snowflake tables (same schema) -> data/flashcrowd_local.duckdb.
+synth:
 	$(PY) -m flashcrowd_model.synth
 
-leakcheck:          ## H3-H6 gate: must print ALL PASSED before anything trains
-	$(PY) -m flashcrowd_model.leakcheck
-
-train: leakcheck    ## H6-H9: 1/2/3 h classifiers + size quantiles, walk-forward, calibrated
+# Systematic training run: validate -> features -> leak gate -> search -> calibrate -> fit -> evaluate -> gate.
+train:
 	$(PY) -m flashcrowd_model.train
 
-backtest:           ## H9-H12: policies through the simulator, cost-weight sweep, Pareto, replay levels
+# Live forecast for now (cron every 15 min). Writes FORECASTS + REGION_FORECASTS.
+forecast:
+	$(PY) -m flashcrowd_model.forecast_job live
+
+# Historical forecasts for a window, e.g. make batch START=2026-10-22 END=2026-10-23T23:00
+batch:
+	$(PY) -m flashcrowd_model.forecast_job batch --start $(START) --end $(END)
+
+# Every policy through the shared engine on the test days; Pareto chart, headline, boss levels.
+backtest:
 	$(PY) -m flashcrowd_model.backtest
 
-forecast:           ## H12-H16: live job for one issue hour, e.g. make forecast T=900
-	$(PY) -m flashcrowd_model.forecast_job --issue-time $(T)
+# Gemini cause labels for history, e.g. make gemini START=2026-10-17 END=2026-10-24T09:00
+gemini:
+	$(PY) -m flashcrowd_model.gemini_labeler --start $(START) --end $(END)
 
-causes:             ## cause labels on/off comparison (heuristic stand-in; use --causes gemini with a key)
-	$(PY) -m flashcrowd_model.train --causes heuristic
-	$(PY) -m flashcrowd_model.backtest --model models/forecast_model_heuristic.pkl --suffix _heuristic
+# Print the Snowflake feature SQL + SURGE_HOURS view for a window (for PC1 / the slide).
+sql:
+	$(PY) -m flashcrowd_model.sql_features --dialect snowflake --start $(START) --end $(END)
 
-all: test data train backtest
+all: test synth train backtest
 
 clean:
-	rm -rf out models data/*.duckdb
+	rm -rf artifacts data/*.duckdb
